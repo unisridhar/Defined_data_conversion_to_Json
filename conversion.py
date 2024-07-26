@@ -2,12 +2,16 @@ import pandas as pd
 import os
 import glob
 import json
-
+import regex as re
+def clean_text(text):
+    # Remove placeholders like [n_s/], [uni/], [filler/]
+    clean_text = re.sub(r'\[.*?/\]', '', text)
+    return clean_text.strip()
 # Define the base directory for reading Excel files
-language_path = 'Rechecked-Summarization/Arabic'
+language_path = 'Rechecked-Summarization/Arabic/Defined-ai'
 
 # Define the base directory for saving JSON files
-output_base_dir = 'Processed-Summarization/Arabic'
+output_base_dir = 'Processed-Summarization/Arabic/Defined-ai'
 
 # Walk through the directory
 if os.path.isdir(language_path):
@@ -19,14 +23,16 @@ if os.path.isdir(language_path):
             for file_path in excel_files:
                 # Read the Excel file into a DataFrame
                 df = pd.read_excel(file_path)
-
-                # Define the columns of interest
-                columns_of_interest = [col for col in df.columns if any(q in col for q in ["Q1", "Q2", "Q3", "Q4"])]
                 transcription_col = next((col for col in df.columns if col.lower() == 'transcription'), None)
 
                 if transcription_col:
-                    print(f"Found 'Transcription' column in file: {file_path}")  
-                
+                    print("")
+                else :
+                    print(f"Not found {file_path}")
+
+                # Define the columns of interest
+                columns_of_interest = [col for col in df.columns if any(q in col for q in ["Q1", "Q2", "Q3", "Q4"])]
+
                 # Check if all required columns are present
                 if len(columns_of_interest) == 4:
                     # Create a new DataFrame with the selected columns
@@ -34,6 +40,9 @@ if os.path.isdir(language_path):
 
                     # Extract the answers from the first row
                     answers = df_selected.iloc[0].to_dict()
+                    transcription_data = [{"speaker": "Agent" if i % 2 == 0 else "Customer", "text": clean_text(text)}
+                                          for i, text in enumerate(df[transcription_col].tolist())]
+                    answers['Transcription'] = transcription_data
 
                     # Define the output file path with the same structure but in a different base directory and with .json extension
                     relative_path = os.path.relpath(file_path, language_path)
@@ -48,7 +57,7 @@ if os.path.isdir(language_path):
 
                     # print(f"Answers extracted and saved to {json_output_path}")
                 else:
-                    missing_cols = set(["Q1", "Q2", "Q3", "Q4"]) - set([col.split()[0] for col in columns_of_interest])
+                    missing_cols = set(["Q1", "Q2", "Q3", "Q4", "Transcription"]) - set([col.split()[0] for col in columns_of_interest])
                     print(f"File {file_path} is missing columns: {missing_cols}")
 
 print("Processing completed.")
